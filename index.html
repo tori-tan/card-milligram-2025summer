@@ -230,6 +230,8 @@
         <img
           id="mainImage"
           alt="1920x1080 画像"
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer"
           src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080' viewBox='0 0 1920 1080'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23212529'/><stop offset='100%25' stop-color='%2355769e'/></linearGradient></defs><rect width='100%25' height='100%25' fill='url(%23g)'/><text x='50%25' y='50%25' font-size='72' fill='white' text-anchor='middle' font-family='Segoe UI, Arial, sans-serif' dominant-baseline='middle'>1920 x 1080 Placeholder</text></svg>"
         />
         <div id="cardBox" class="card-box">
@@ -263,6 +265,7 @@
         </div>
 
         <div class="checkbox-grid" style="margin-top: 12px">
+          <!-- 日付ごとのアップロード行（既存） -->
           <div class="day-row">
             <span class="day-label">8/18</span>
             <input type="file" id="dateUpload1" accept="image/png,image/*" />
@@ -319,6 +322,11 @@
               削除
             </button>
           </div>
+        </div>
+
+        <!-- 追加: PNGで保存 -->
+        <div class="row" style="justify-content: flex-end; margin-top: 8px">
+          <button type="button" id="exportPngBtn">PNGで保存</button>
         </div>
       </div>
 
@@ -380,6 +388,7 @@
         const nameInput = document.getElementById("nameInput");
         const cardUrlInput = document.getElementById("cardUrlInput");
         const applyCardBtn = document.getElementById("applyCardUrl");
+        const exportPngBtn = document.getElementById("exportPngBtn"); // 追加
 
         // ローカルアップロードスタンプ（最大8枚）
         const overlayImgs = Array.from({ length: 8 }, (_, i) =>
@@ -469,9 +478,130 @@
           nameBadge.style.display = text ? "block" : "none";
         }
 
+        // PNG書き出し
+        async function exportAsPNG() {
+          try {
+            // フォント読み込み完了を待つ
+            if (document.fonts && document.fonts.ready) {
+              try {
+                await document.fonts.ready;
+              } catch {}
+            }
+
+            const natW = img.naturalWidth || 1920;
+            const natH = img.naturalHeight || 1080;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = natW;
+            canvas.height = natH;
+            const ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+
+            // ベース（カード）
+            ctx.drawImage(img, 0, 0, natW, natH);
+
+            // スタンプ（overlay1..8）
+            const overlayImgs = Array.from({ length: 8 }, (_, i) =>
+              document.getElementById(`overlay${i + 1}`)
+            );
+            for (const o of overlayImgs) {
+              if (o && o.src && !o.hidden) {
+                ctx.drawImage(o, 0, 0, natW, natH);
+              }
+            }
+
+            // 名前（外側のみ白縁 → 本体の順で描画）
+            const nameText = (nameInput.value || "").trim();
+            if (nameText) {
+              // 画面座標→自然サイズへ変換
+              const boxRect = cardBox.getBoundingClientRect();
+              const nmRect = nameBadge.getBoundingClientRect();
+              const scaleX = natW / boxRect.width;
+              const scaleY = natH / boxRect.height;
+
+              const fsPx = parseFloat(
+                getComputedStyle(nameBadge).fontSize || "0"
+              );
+              const fontSize = Math.max(1, Math.round(fsPx * scaleY));
+              const nameX = Math.round((nmRect.left - boxRect.left) * scaleX);
+              const nameY = Math.round(
+                (nmRect.top - boxRect.top) * scaleY + fontSize
+              );
+
+              const fontFamily = "'Yusei Magic','Noto Sans JP',sans-serif";
+
+              // 外側のみ白縁を作る（オフスクリーンでStroke-内側を引き算）
+              const outlineCanvas = document.createElement("canvas");
+              outlineCanvas.width = natW;
+              outlineCanvas.height = natH;
+              const octx = outlineCanvas.getContext("2d");
+              octx.font = `${fontSize}px ${fontFamily}`;
+              octx.textBaseline = "alphabetic";
+              octx.textAlign = "left";
+              octx.lineJoin = "round";
+
+              // 目標の袋文字 2px（自然サイズ換算）
+              const outlineTarget = Math.max(1, Math.round(2 * scaleY));
+              const strokeDrawWidth = Math.max(
+                2,
+                Math.round(outlineTarget * 2)
+              ); // 内側が消える前提で2倍
+
+              octx.strokeStyle = "#ffffff";
+              octx.lineWidth = strokeDrawWidth;
+              octx.strokeText(nameText, nameX, nameY);
+
+              // 内側を消す
+              octx.globalCompositeOperation = "destination-out";
+              octx.fillStyle = "#000";
+              octx.fillText(nameText, nameX, nameY);
+
+              // 外側縁
+              ctx.drawImage(outlineCanvas, 0, 0);
+
+              // 本体
+              ctx.font = `${fontSize}px ${fontFamily}`;
+              ctx.textBaseline = "alphabetic";
+              ctx.textAlign = "left";
+              ctx.fillStyle = "#5a3b13";
+              ctx.fillText(nameText, nameX, nameY);
+            }
+
+            // PNG化
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                alert(
+                  "PNGの作成に失敗しました。外部画像のCORS制限の可能性があります。カード画像はローカルから選択するか、CORS許可の画像をご利用ください。"
+                );
+                return;
+              }
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "card.png";
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }, "image/png");
+          } catch (e) {
+            console.error(e);
+            alert("PNGの書き出しに失敗しました。");
+          }
+        }
+
+        if (exportPngBtn) {
+          exportPngBtn.addEventListener("click", exportAsPNG);
+        }
+
+        // カードURL適用（CORS考慮）
         function applyCardUrl() {
           const url = (cardUrlInput?.value || "").trim();
           if (!url) return;
+          // CORS許可がある場合に備え crossOrigin を設定
+          img.crossOrigin = "anonymous";
+          img.referrerPolicy = "no-referrer";
           img.src = url;
           img
             .decode?.()
