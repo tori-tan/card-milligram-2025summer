@@ -21,9 +21,6 @@
       rel="stylesheet"
     />
     <style>
-      :root {
-        --max-width: 1920px;
-      }
       * {
         box-sizing: border-box;
       }
@@ -108,12 +105,17 @@
         inset: 0;
         width: 100%;
         height: 100%;
-        display: none;
+        /* CHANGED: show by default; hide via [hidden] or empty src */
+        display: block;
         image-rendering: auto;
       }
       /* src未設定や空文字のimgは常に非表示（壊れアイコン対策） */
       .overlay-stamp:not([src]),
       .overlay-stamp[src=""] {
+        display: none !important;
+      }
+      /* NEW: respect [hidden] attribute explicitly */
+      .overlay-stamp[hidden] {
         display: none !important;
       }
 
@@ -141,12 +143,7 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
-        margin-top: 12px;
-      }
-      .checkbox-grid .checklabel {
-        display: block;
-        padding: 2px 0;
-        color: #444;
+        /* margin-top: 12px;  ← 既に上位で設定済み */
       }
       .day-row {
         display: flex;
@@ -264,7 +261,7 @@
           />
         </div>
 
-        <div class="checkbox-grid" style="margin-top: 12px">
+        <div class="checkbox-grid">
           <!-- 日付ごとのアップロード行（既存） -->
           <div class="day-row">
             <span class="day-label">8/18</span>
@@ -390,6 +387,10 @@
         const applyCardBtn = document.getElementById("applyCardUrl");
         const exportPngBtn = document.getElementById("exportPngBtn"); // 追加
 
+        // NEW: defaults for 16:9 cards when natural size is not yet known
+        const DEFAULT_W = 1920;
+        const DEFAULT_H = 1080;
+
         // ローカルアップロードスタンプ（最大8枚）
         const overlayImgs = Array.from({ length: 8 }, (_, i) =>
           document.getElementById(`overlay${i + 1}`)
@@ -406,6 +407,16 @@
         );
         // オブジェクトURLを追跡して解放
         const objectUrls = new Array(8).fill(null);
+
+        // NEW: rAF-throttled layout updater to avoid redundant reflows
+        let rafId = 0;
+        function scheduleUpdateCardBoxRect() {
+          if (rafId) return;
+          rafId = requestAnimationFrame(() => {
+            rafId = 0;
+            updateCardBoxRect();
+          });
+        }
 
         function setFileName(i, name) {
           const span = fileNameSpans[i];
@@ -458,24 +469,54 @@
           btn.addEventListener("click", () => clearOverlay(i));
         });
 
-        // 実表示コンテンツ領域に合わせてフレームを調整
-        function updateFrameSize() {
-          const frameEl = frame;
-          if (!frameEl) return;
-          const vv = window.visualViewport;
-          const vpw = vv ? vv.width : window.innerWidth;
-          const vph = vv ? vv.height : window.innerHeight;
-          const targetW = Math.min(vpw, vph * (16 / 9));
-          const targetH = Math.min(vph, vpw * (9 / 16));
-          frameEl.style.width = targetW + "px";
-          frameEl.style.height = targetH + "px";
-          updateCardBoxRect();
-        }
-
         function updateName() {
           const text = nameInput.value.trim();
           nameBadge.textContent = text;
           nameBadge.style.display = text ? "block" : "none";
+        }
+
+        // NEW: helper to draw outlined text with outer-only outline
+        function drawOutlinedText(
+          ctx,
+          text,
+          x,
+          y,
+          fontSize,
+          fontFamily,
+          outlinePx,
+          fillColor = "#5a3b13",
+          outlineColor = "#ffffff"
+        ) {
+          if (!text) return;
+          const { canvas } = ctx;
+          const ow = canvas.width;
+          const oh = canvas.height;
+          const outlineCanvas = document.createElement("canvas");
+          outlineCanvas.width = ow;
+          outlineCanvas.height = oh;
+          const octx = outlineCanvas.getContext("2d");
+          octx.font = `${fontSize}px ${fontFamily}`;
+          octx.textBaseline = "alphabetic";
+          octx.textAlign = "left";
+          octx.lineJoin = "round";
+
+          // draw wider stroke, then punch out the inner fill to keep only the outer rim
+          const strokeDrawWidth = Math.max(2, Math.round(outlinePx * 2));
+          octx.strokeStyle = outlineColor;
+          octx.lineWidth = strokeDrawWidth;
+          octx.strokeText(text, x, y);
+
+          octx.globalCompositeOperation = "destination-out";
+          octx.fillStyle = "#000";
+          octx.fillText(text, x, y);
+
+          // paint outline then fill main text
+          ctx.drawImage(outlineCanvas, 0, 0);
+          ctx.font = `${fontSize}px ${fontFamily}`;
+          ctx.textBaseline = "alphabetic";
+          ctx.textAlign = "left";
+          ctx.fillStyle = fillColor;
+          ctx.fillText(text, x, y);
         }
 
         // PNG書き出し
@@ -488,8 +529,8 @@
               } catch {}
             }
 
-            const natW = img.naturalWidth || 1920;
-            const natH = img.naturalHeight || 1080;
+            const natW = img.naturalWidth || DEFAULT_W;
+            const natH = img.naturalHeight || DEFAULT_H;
 
             const canvas = document.createElement("canvas");
             canvas.width = natW;
@@ -502,9 +543,6 @@
             ctx.drawImage(img, 0, 0, natW, natH);
 
             // スタンプ（overlay1..8）
-            const overlayImgs = Array.from({ length: 8 }, (_, i) =>
-              document.getElementById(`overlay${i + 1}`)
-            );
             for (const o of overlayImgs) {
               if (o && o.src && !o.hidden) {
                 ctx.drawImage(o, 0, 0, natW, natH);
@@ -530,42 +568,20 @@
               );
 
               const fontFamily = "'Yusei Magic','Noto Sans JP',sans-serif";
-
-              // 外側のみ白縁を作る（オフスクリーンでStroke-内側を引き算）
-              const outlineCanvas = document.createElement("canvas");
-              outlineCanvas.width = natW;
-              outlineCanvas.height = natH;
-              const octx = outlineCanvas.getContext("2d");
-              octx.font = `${fontSize}px ${fontFamily}`;
-              octx.textBaseline = "alphabetic";
-              octx.textAlign = "left";
-              octx.lineJoin = "round";
-
-              // 目標の袋文字 2px（自然サイズ換算）
               const outlineTarget = Math.max(1, Math.round(2 * scaleY));
-              const strokeDrawWidth = Math.max(
-                2,
-                Math.round(outlineTarget * 2)
-              ); // 内側が消える前提で2倍
 
-              octx.strokeStyle = "#ffffff";
-              octx.lineWidth = strokeDrawWidth;
-              octx.strokeText(nameText, nameX, nameY);
-
-              // 内側を消す
-              octx.globalCompositeOperation = "destination-out";
-              octx.fillStyle = "#000";
-              octx.fillText(nameText, nameX, nameY);
-
-              // 外側縁
-              ctx.drawImage(outlineCanvas, 0, 0);
-
-              // 本体
-              ctx.font = `${fontSize}px ${fontFamily}`;
-              ctx.textBaseline = "alphabetic";
-              ctx.textAlign = "left";
-              ctx.fillStyle = "#5a3b13";
-              ctx.fillText(nameText, nameX, nameY);
+              // REFACTORED: use helper
+              drawOutlinedText(
+                ctx,
+                nameText,
+                nameX,
+                nameY,
+                fontSize,
+                fontFamily,
+                outlineTarget,
+                "#5a3b13",
+                "#ffffff"
+              );
             }
 
             // PNG化
@@ -606,7 +622,7 @@
           img
             .decode?.()
             .catch(() => {})
-            .finally(updateCardBoxRect);
+            .finally(scheduleUpdateCardBoxRect);
         }
 
         // object-fit: contain の実表示領域を計算し cardBox に反映
@@ -614,8 +630,8 @@
           if (!img || !frame || !cardBox) return;
           const fw = frame.clientWidth;
           const fh = frame.clientHeight;
-          const natW = img.naturalWidth || 1920;
-          const natH = img.naturalHeight || 1080;
+          const natW = img.naturalWidth || DEFAULT_W;
+          const natH = img.naturalHeight || DEFAULT_H;
           if (fw === 0 || fh === 0 || natW === 0 || natH === 0) return;
           const scale = Math.min(fw / natW, fh / natH);
           const drawW = natW * scale;
@@ -626,11 +642,10 @@
           cardBox.style.top = offsetY + "px";
           cardBox.style.width = drawW + "px";
           cardBox.style.height = drawH + "px";
-          // CSS 変数でカードサイズとスケールを共有
           cardBox.style.setProperty("--card-w", `${drawW}px`);
           cardBox.style.setProperty("--card-h", `${drawH}px`);
-          const scaleX = drawW / 1920;
-          const scaleY = drawH / 1080;
+          const scaleX = drawW / DEFAULT_W;
+          const scaleY = drawH / DEFAULT_H;
           cardBox.style.setProperty("--card-scale-x", String(scaleX));
           cardBox.style.setProperty("--card-scale-y", String(scaleY));
         }
@@ -646,21 +661,27 @@
 
         // 初期化
         updateName();
-        updateFrameSize();
+        updateCardBoxRect();
 
         // ページロード後
         window.addEventListener("load", () => {
           try {
             applyCardUrl();
           } catch (_) {}
-          updateFrameSize();
+          scheduleUpdateCardBoxRect();
         });
-        window.addEventListener("resize", updateFrameSize);
+        window.addEventListener("resize", scheduleUpdateCardBoxRect);
         if (window.visualViewport) {
-          window.visualViewport.addEventListener("resize", updateFrameSize);
-          window.visualViewport.addEventListener("scroll", updateFrameSize);
+          window.visualViewport.addEventListener(
+            "resize",
+            scheduleUpdateCardBoxRect
+          );
+          window.visualViewport.addEventListener(
+            "scroll",
+            scheduleUpdateCardBoxRect
+          );
         }
-        img.addEventListener("load", updateCardBoxRect);
+        img.addEventListener("load", scheduleUpdateCardBoxRect);
 
         // 16:9維持のフォールバックは不要（ビューポートフィット運用）
       })();
