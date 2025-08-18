@@ -4,6 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>画像表示 + コントローラー</title>
+    <!-- PWA: manifest + iOS full screen meta -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -38,6 +48,13 @@
         margin: 0 auto;
         background: #000;
         overflow: hidden;
+      }
+      /* モバイルのツールバーを考慮（対応ブラウザではdvh/dvwを使用） */
+      @supports (height: 100dvh) and (width: 100dvw) {
+        .image-frame {
+          width: min(100dvw, calc(100dvh * 16 / 9));
+          height: min(100dvh, calc(100dvw * 9 / 16));
+        }
       }
       .image-frame img {
         width: 100%;
@@ -76,59 +93,28 @@
           2px 2px 0 #fff, -2px 2px 0 #fff, 2px -2px 0 #fff, -2px -2px 0 #fff;
       }
 
-      /* スタンプ帯（カードサイズに追従） */
-      .stamps {
-        /* 入力された余白・間隔（1920px幅を基準としたpx） */
-        --stamps-left-base: 48px;
-        --stamps-right-base: 48px;
-        --stamps-gap-base: 8px;
+      /* アップロードスタンプ（カード全面に重ねる） */
+      .overlay-stamps {
         position: absolute;
         left: 0;
-        right: 0;
-        bottom: calc(var(--card-h, 0px) * 0.1);
-        height: 20%;
-        /* 横方向スケールに追従させる */
-        padding: 8px calc(var(--stamps-right-base) * var(--card-scale-x, 1)) 8px
-          calc(var(--stamps-left-base) * var(--card-scale-x, 1));
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        align-items: end;
-        justify-items: center;
-        gap: calc(var(--stamps-gap-base) * var(--card-scale-x, 1));
-        z-index: 1;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2;
         pointer-events: none;
       }
-      .stamps img.stamp {
-        max-height: 100%;
-        max-width: 100%;
-        width: auto;
-        height: auto;
-        object-fit: contain;
+      .overlay-stamp {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
         display: none;
-        filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
-        pointer-events: none;
+        image-rendering: auto;
       }
-      /* 各スタンプの列を固定（非表示でも枠は保持） */
-      #stamp1 {
-        grid-column: 1;
-      }
-      #stamp2 {
-        grid-column: 2;
-      }
-      #stamp3 {
-        grid-column: 3;
-      }
-      #stamp4 {
-        grid-column: 4;
-      }
-      #stamp5 {
-        grid-column: 5;
-      }
-      #stamp6 {
-        grid-column: 6;
-      }
-      #stamp7 {
-        grid-column: 7;
+      /* src未設定や空文字のimgは常に非表示（壊れアイコン対策） */
+      .overlay-stamp:not([src]),
+      .overlay-stamp[src=""] {
+        display: none !important;
       }
 
       .controls {
@@ -152,15 +138,32 @@
         border-radius: 6px;
       }
       .checkbox-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 8px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
         margin-top: 12px;
       }
-      .checkbox-grid label {
+      .checkbox-grid .checklabel {
+        display: block;
+        padding: 2px 0;
+        color: #444;
+      }
+      .day-row {
         display: flex;
         gap: 8px;
         align-items: center;
+        flex-wrap: wrap;
+      }
+      .day-row .day-label {
+        min-width: 64px;
+        font-weight: 600;
+      }
+      .day-row .filename {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .day-row .clear-btn {
+        display: none;
       }
       details.accordion {
         margin-top: 12px;
@@ -230,17 +233,17 @@
           src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080' viewBox='0 0 1920 1080'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23212529'/><stop offset='100%25' stop-color='%2355769e'/></linearGradient></defs><rect width='100%25' height='100%25' fill='url(%23g)'/><text x='50%25' y='50%25' font-size='72' fill='white' text-anchor='middle' font-family='Segoe UI, Arial, sans-serif' dominant-baseline='middle'>1920 x 1080 Placeholder</text></svg>"
         />
         <div id="cardBox" class="card-box">
-          <div class="name-badge" id="nameBadge" aria-live="polite"></div>
-          <!-- stamps overlay at bottom -->
-          <div class="stamps" id="stamps">
-            <img id="stamp1" class="stamp" alt="8/18 スタンプ" />
-            <img id="stamp2" class="stamp" alt="8/19 スタンプ" />
-            <img id="stamp3" class="stamp" alt="8/20 スタンプ" />
-            <img id="stamp4" class="stamp" alt="8/21 スタンプ" />
-            <img id="stamp5" class="stamp" alt="8/22 スタンプ" />
-            <img id="stamp6" class="stamp" alt="8/23 スタンプ" />
-            <img id="stamp7" class="stamp" alt="8/24 スタンプ" />
+          <div class="overlay-stamps" id="overlayStamps">
+            <img id="overlay1" class="overlay-stamp" alt="" hidden />
+            <img id="overlay2" class="overlay-stamp" alt="" hidden />
+            <img id="overlay3" class="overlay-stamp" alt="" hidden />
+            <img id="overlay4" class="overlay-stamp" alt="" hidden />
+            <img id="overlay5" class="overlay-stamp" alt="" hidden />
+            <img id="overlay6" class="overlay-stamp" alt="" hidden />
+            <img id="overlay7" class="overlay-stamp" alt="" hidden />
+            <img id="overlay8" class="overlay-stamp" alt="" hidden />
           </div>
+          <div class="name-badge" id="nameBadge" aria-live="polite"></div>
         </div>
       </div>
 
@@ -260,23 +263,92 @@
         </div>
 
         <div class="checkbox-grid" style="margin-top: 12px">
-          <label><input type="checkbox" id="dayToggle1" /> 8/18 を表示</label>
-          <label><input type="checkbox" id="dayToggle2" /> 8/19 を表示</label>
-          <label><input type="checkbox" id="dayToggle3" /> 8/20 を表示</label>
-          <label><input type="checkbox" id="dayToggle4" /> 8/21 を表示</label>
-          <label><input type="checkbox" id="dayToggle5" /> 8/22 を表示</label>
-          <label><input type="checkbox" id="dayToggle6" /> 8/23 を表示</label>
-          <label><input type="checkbox" id="dayToggle7" /> 8/24 を表示</label>
+          <div class="day-row">
+            <span class="day-label">8/18</span>
+            <input type="file" id="dateUpload1" accept="image/png,image/*" />
+            <span class="filename" id="fileName1">未選択</span>
+            <button type="button" class="clear-btn" id="clearStamp1">
+              削除
+            </button>
+          </div>
+          <div class="day-row">
+            <span class="day-label">8/19</span>
+            <input type="file" id="dateUpload2" accept="image/png,image/*" />
+            <span class="filename" id="fileName2">未選択</span>
+            <button type="button" class="clear-btn" id="clearStamp2">
+              削除
+            </button>
+          </div>
+          <div class="day-row">
+            <span class="day-label">8/20</span>
+            <input type="file" id="dateUpload3" accept="image/png,image/*" />
+            <span class="filename" id="fileName3">未選択</span>
+            <button type="button" class="clear-btn" id="clearStamp3">
+              削除
+            </button>
+          </div>
+          <div class="day-row">
+            <span class="day-label">8/21</span>
+            <input type="file" id="dateUpload4" accept="image/png,image/*" />
+            <span class="filename" id="fileName4">未選択</span>
+            <button type="button" class="clear-btn" id="clearStamp4">
+              削除
+            </button>
+          </div>
+          <div class="day-row">
+            <span class="day-label">8/22</span>
+            <input type="file" id="dateUpload5" accept="image/png,image/*" />
+            <span class="filename" id="fileName5">未選択</span>
+            <button type="button" class="clear-btn" id="clearStamp5">
+              削除
+            </button>
+          </div>
+          <div class="day-row">
+            <span class="day-label">8/23</span>
+            <input type="file" id="dateUpload6" accept="image/png,image/*" />
+            <span class="filename" id="fileName6">未選択</span>
+            <button type="button" class="clear-btn" id="clearStamp6">
+              削除
+            </button>
+          </div>
+          <div class="day-row">
+            <span class="day-label">8/24</span>
+            <input type="file" id="dateUpload7" accept="image/png,image/*" />
+            <span class="filename" id="fileName7">未選択</span>
+            <button type="button" class="clear-btn" id="clearStamp7">
+              削除
+            </button>
+          </div>
         </div>
-
-        <p style="margin: 8px 0 0 0; color: #666; font-size: 12px">
-          画像のURLを差し替える場合は、<code>mainImage</code> の
-          <code>src</code> を変更してください（推奨サイズ 1920×1080）。
-        </p>
       </div>
 
       <!-- 設定（アコーディオン、初期は閉じる） -->
       <div class="controls" role="region" aria-labelledby="settingsTitle">
+        <div
+          style="
+            margin-bottom: 12px;
+            padding: 10px;
+            border: 1px dashed #bbb;
+            border-radius: 8px;
+            background: #fafafa;
+            color: #333;
+            font-size: 13px;
+            line-height: 1.6;
+          "
+        >
+          フルスクリーンで使うには：
+          <ul style="margin: 6px 0 0 18px; padding: 0">
+            <li>
+              iOS Safari: 共有ボタン →
+              ホーム画面に追加（追加後はツールバー無しで全画面表示）
+            </li>
+            <li>
+              Android Chrome: メニュー ⋮ →
+              ホーム画面に追加（インストール後は全画面表示）
+            </li>
+          </ul>
+          一時的にツールバーを隠すには、ページを少しスクロールしてください。
+        </div>
         <details class="accordion" id="settingsAccordion">
           <summary id="settingsTitle">画像の設定</summary>
           <div class="settings-fields" aria-live="off">
@@ -293,100 +365,7 @@
               </div>
             </div>
 
-            <!-- スタンプのレイアウト調整 -->
-            <div class="row">
-              <label for="stampsLeft">スタンプ 左余白(px)</label>
-              <input
-                type="number"
-                id="stampsLeft"
-                value="48"
-                min="0"
-                step="1"
-                style="max-width: 140px"
-              />
-              <label for="stampsRight">右余白(px)</label>
-              <input
-                type="number"
-                id="stampsRight"
-                value="48"
-                min="0"
-                step="1"
-                style="max-width: 140px"
-              />
-              <label for="stampsGap">間隔(px)</label>
-              <input
-                type="number"
-                id="stampsGap"
-                value="8"
-                min="0"
-                step="1"
-                style="max-width: 140px"
-              />
-            </div>
-
-            <div class="row">
-              <label for="stampUrl1">スタンプ1 画像URL</label
-              ><input
-                type="text"
-                id="stampUrl1"
-                placeholder=""
-                value="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjBToPsZdOEkaKgCtvOzYVIuyNlUZaOArSXZBledFyWqywfle3Ifz2qKLbWHBRKV1iYSYTPpPXuyXfoICKgQ7r_Y3h1NcZBIW_uNvTCIkBWZF2S78XgA2no5MfLYQcQ2eNf9H-bNC15SDzs/s800/hanko_taihenyokudekimashita.png"
-              />
-            </div>
-            <div class="row">
-              <label for="stampUrl2">スタンプ2 画像URL</label
-              ><input
-                type="text"
-                id="stampUrl2"
-                placeholder=""
-                value="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjBToPsZdOEkaKgCtvOzYVIuyNlUZaOArSXZBledFyWqywfle3Ifz2qKLbWHBRKV1iYSYTPpPXuyXfoICKgQ7r_Y3h1NcZBIW_uNvTCIkBWZF2S78XgA2no5MfLYQcQ2eNf9H-bNC15SDzs/s800/hanko_taihenyokudekimashita.png"
-              />
-            </div>
-            <div class="row">
-              <label for="stampUrl3">スタンプ3 画像URL</label
-              ><input
-                type="text"
-                id="stampUrl3"
-                placeholder=""
-                value="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjBToPsZdOEkaKgCtvOzYVIuyNlUZaOArSXZBledFyWqywfle3Ifz2qKLbWHBRKV1iYSYTPpPXuyXfoICKgQ7r_Y3h1NcZBIW_uNvTCIkBWZF2S78XgA2no5MfLYQcQ2eNf9H-bNC15SDzs/s800/hanko_taihenyokudekimashita.png"
-              />
-            </div>
-            <div class="row">
-              <label for="stampUrl4">スタンプ4 画像URL</label
-              ><input
-                type="text"
-                id="stampUrl4"
-                placeholder=""
-                value="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjBToPsZdOEkaKgCtvOzYVIuyNlUZaOArSXZBledFyWqywfle3Ifz2qKLbWHBRKV1iYSYTPpPXuyXfoICKgQ7r_Y3h1NcZBIW_uNvTCIkBWZF2S78XgA2no5MfLYQcQ2eNf9H-bNC15SDzs/s800/hanko_taihenyokudekimashita.png"
-              />
-            </div>
-            <div class="row">
-              <label for="stampUrl5">スタンプ5 画像URL</label
-              ><input
-                type="text"
-                id="stampUrl5"
-                placeholder=""
-                value="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjBToPsZdOEkaKgCtvOzYVIuyNlUZaOArSXZBledFyWqywfle3Ifz2qKLbWHBRKV1iYSYTPpPXuyXfoICKgQ7r_Y3h1NcZBIW_uNvTCIkBWZF2S78XgA2no5MfLYQcQ2eNf9H-bNC15SDzs/s800/hanko_taihenyokudekimashita.png"
-              />
-            </div>
-            <div class="row">
-              <label for="stampUrl6">スタンプ6 画像URL</label
-              ><input
-                type="text"
-                id="stampUrl6"
-                placeholder=""
-                value="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjBToPsZdOEkaKgCtvOzYVIuyNlUZaOArSXZBledFyWqywfle3Ifz2qKLbWHBRKV1iYSYTPpPXuyXfoICKgQ7r_Y3h1NcZBIW_uNvTCIkBWZF2S78XgA2no5MfLYQcQ2eNf9H-bNC15SDzs/s800/hanko_taihenyokudekimashita.png"
-              />
-            </div>
-            <div class="row">
-              <label for="stampUrl7">スタンプ7 画像URL</label
-              ><input
-                type="text"
-                id="stampUrl7"
-                placeholder=""
-                value="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjBToPsZdOEkaKgCtvOzYVIuyNlUZaOArSXZBledFyWqywfle3Ifz2qKLbWHBRKV1iYSYTPpPXuyXfoICKgQ7r_Y3h1NcZBIW_uNvTCIkBWZF2S78XgA2no5MfLYQcQ2eNf9H-bNC15SDzs/s800/hanko_taihenyokudekimashita.png"
-              />
-            </div>
+            <!-- スタンプ画像のアップロードはコントローラー側へ移動しました -->
           </div>
         </details>
       </div>
@@ -399,57 +378,89 @@
         const cardBox = document.getElementById("cardBox");
         const nameBadge = document.getElementById("nameBadge");
         const nameInput = document.getElementById("nameInput");
-        const dayToggles = [1, 2, 3, 4, 5, 6, 7].map((i) =>
-          document.getElementById(`dayToggle${i}`)
-        );
         const cardUrlInput = document.getElementById("cardUrlInput");
         const applyCardBtn = document.getElementById("applyCardUrl");
-        const stampInputs = [1, 2, 3, 4, 5, 6, 7].map((i) =>
-          document.getElementById(`stampUrl${i}`)
-        );
-        const stampImgs = [1, 2, 3, 4, 5, 6, 7].map((i) =>
-          document.getElementById(`stamp${i}`)
-        );
-        const stampsContainer = document.getElementById("stamps");
-        const stampsLeft = document.getElementById("stampsLeft");
-        const stampsRight = document.getElementById("stampsRight");
-        const stampsGap = document.getElementById("stampsGap");
 
-        function updateStampVisibility() {
-          for (let i = 0; i < 7; i++) {
-            const show = !!dayToggles[i]?.checked;
-            const hasSrc = !!stampImgs[i]?.getAttribute("src");
-            if (stampImgs[i])
-              stampImgs[i].style.display = show && hasSrc ? "block" : "none";
-          }
+        // ローカルアップロードスタンプ（最大8枚）
+        const overlayImgs = Array.from({ length: 8 }, (_, i) =>
+          document.getElementById(`overlay${i + 1}`)
+        );
+        // コントローラー側の日付行にアップロード/削除を配置（1..7を使用、8は設定なしでも動作可能）
+        const uploadInputs = Array.from({ length: 7 }, (_, i) =>
+          document.getElementById(`dateUpload${i + 1}`)
+        );
+        const fileNameSpans = Array.from({ length: 7 }, (_, i) =>
+          document.getElementById(`fileName${i + 1}`)
+        );
+        const clearButtons = Array.from({ length: 7 }, (_, i) =>
+          document.getElementById(`clearStamp${i + 1}`)
+        );
+        // オブジェクトURLを追跡して解放
+        const objectUrls = new Array(8).fill(null);
+
+        function setFileName(i, name) {
+          const span = fileNameSpans[i];
+          if (span) span.textContent = name || "未選択";
+          const btn = clearButtons[i];
+          if (btn)
+            btn.style.display =
+              name && name !== "未選択" ? "inline-block" : "none";
         }
 
-        function updateStampSrcs() {
-          for (let i = 0; i < 7; i++) {
-            const url = (stampInputs[i]?.value || "").trim();
-            if (stampImgs[i]) {
-              if (url) {
-                stampImgs[i].src = url;
-              } else {
-                stampImgs[i].removeAttribute("src");
-              }
-            }
+        function clearOverlay(i) {
+          const imgEl = overlayImgs[i];
+          if (!imgEl) return;
+          if (objectUrls[i]) {
+            URL.revokeObjectURL(objectUrls[i]);
+            objectUrls[i] = null;
           }
-          updateStampVisibility();
+          imgEl.removeAttribute("src");
+          imgEl.hidden = true;
+          if (uploadInputs[i]) uploadInputs[i].value = "";
+          setFileName(i, "未選択");
         }
 
-        function updateStampsLayout() {
-          if (!stampsContainer) return;
-          const left = Math.max(0, Number(stampsLeft?.value) || 0);
-          const right = Math.max(0, Number(stampsRight?.value) || 0);
-          const gap = Math.max(0, Number(stampsGap?.value) || 0);
-          // 1920px を基準としたベース値として設定（実際の表示はCSS側でスケール）
-          stampsContainer.style.setProperty("--stamps-left-base", `${left}px`);
-          stampsContainer.style.setProperty(
-            "--stamps-right-base",
-            `${right}px`
-          );
-          stampsContainer.style.setProperty("--stamps-gap-base", `${gap}px`);
+        function handleUpload(idx, file) {
+          const imgEl = overlayImgs[idx];
+          if (!imgEl || !file) return;
+          if (objectUrls[idx]) {
+            URL.revokeObjectURL(objectUrls[idx]);
+            objectUrls[idx] = null;
+          }
+          const url = URL.createObjectURL(file);
+          objectUrls[idx] = url;
+          imgEl.onload = () => {
+            // keep URL until cleared to allow re-render without GC
+          };
+          imgEl.src = url;
+          imgEl.hidden = false;
+          setFileName(idx, file.name);
+        }
+
+        uploadInputs.forEach((inp, i) => {
+          if (!inp) return;
+          inp.addEventListener("change", () => {
+            const file = inp.files && inp.files[0];
+            if (file) handleUpload(i, file);
+          });
+        });
+        clearButtons.forEach((btn, i) => {
+          if (!btn) return;
+          btn.addEventListener("click", () => clearOverlay(i));
+        });
+
+        // 実表示コンテンツ領域に合わせてフレームを調整
+        function updateFrameSize() {
+          const frameEl = frame;
+          if (!frameEl) return;
+          const vv = window.visualViewport;
+          const vpw = vv ? vv.width : window.innerWidth;
+          const vph = vv ? vv.height : window.innerHeight;
+          const targetW = Math.min(vpw, vph * (16 / 9));
+          const targetH = Math.min(vph, vpw * (9 / 16));
+          frameEl.style.width = targetW + "px";
+          frameEl.style.height = targetH + "px";
+          updateCardBoxRect();
         }
 
         function updateName() {
@@ -462,7 +473,6 @@
           const url = (cardUrlInput?.value || "").trim();
           if (!url) return;
           img.src = url;
-          // 画像更新後にリサイズを再計算
           img
             .decode?.()
             .catch(() => {})
@@ -493,51 +503,43 @@
           const scaleY = drawH / 1080;
           cardBox.style.setProperty("--card-scale-x", String(scaleX));
           cardBox.style.setProperty("--card-scale-y", String(scaleY));
-          // スタンプ帯にもスケールを反映（継承しない場合に備えて明示設定）
-          if (stampsContainer) {
-            stampsContainer.style.setProperty("--card-scale-x", String(scaleX));
-            stampsContainer.style.setProperty("--card-scale-y", String(scaleY));
-          }
-          // レイアウト依存値を更新
-          updateStampsLayout();
         }
 
+        // Listeners
         nameInput.addEventListener("input", updateName);
-        dayToggles.forEach(
-          (c) => c && c.addEventListener("change", updateStampVisibility)
-        );
-        stampInputs.forEach(
-          (inp) => inp && inp.addEventListener("change", updateStampSrcs)
-        );
-        [stampsLeft, stampsRight, stampsGap].forEach(
-          (el) => el && el.addEventListener("input", updateStampsLayout)
-        );
         if (applyCardBtn) applyCardBtn.addEventListener("click", applyCardUrl);
-        if (cardUrlInput)
+        if (cardUrlInput) {
           cardUrlInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter") applyCardUrl();
           });
+        }
 
         // 初期化
         updateName();
-        updateStampSrcs();
-        updateStampsLayout();
-        updateCardBoxRect();
+        updateFrameSize();
 
-        // ページのロード完了時に、設定欄のカード画像URLを適用
+        // ページロード後
         window.addEventListener("load", () => {
           try {
             applyCardUrl();
-          } catch (_) {
-            /* no-op */
-          }
-          updateCardBoxRect();
+          } catch (_) {}
+          updateFrameSize();
         });
-        window.addEventListener("resize", updateCardBoxRect);
+        window.addEventListener("resize", updateFrameSize);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", updateFrameSize);
+          window.visualViewport.addEventListener("scroll", updateFrameSize);
+        }
         img.addEventListener("load", updateCardBoxRect);
 
         // 16:9維持のフォールバックは不要（ビューポートフィット運用）
       })();
+      // PWA: Service Worker 登録（対応ブラウザのみ）
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        });
+      }
     </script>
   </body>
 </html>
