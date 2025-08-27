@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>画像表示 + コントローラー</title>
+    <title>スタンプカード</title>
     <!-- PWA: manifest + iOS full screen meta -->
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="theme-color" content="#000000" />
@@ -139,28 +139,64 @@
         border: 1px solid #ccc;
         border-radius: 6px;
       }
+      /* Name row: keep on one line regardless of window size */
+      .controls .row.inline-form {
+        flex-wrap: nowrap;
+        overflow-x: auto; /* scroll horizontally if too narrow */
+      }
+      .controls .row.inline-form label {
+        flex: 0 0 84px; /* align with stamp label width */
+        white-space: nowrap;
+      }
+      .controls .row.inline-form input[type="text"] {
+        flex: 1 1 auto; /* grow/shrink */
+        min-width: 0; /* allow shrinking */
+      }
+      /* ADD: name row bottom margin (only in the top "選択" controls block) */
+      .controls[aria-labelledby="controlsTitle"] .row.inline-form {
+        margin-bottom: 4px;
+      }
       .checkbox-grid {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 4px;
         /* margin-top: 12px;  ← 既に上位で設定済み */
       }
       .day-row {
         display: flex;
-        gap: 8px;
+        column-gap: 4px; /* CHANGED: was gap: 8px */
         align-items: center;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        margin: 0; /* CHANGED: vertical margins to 0 */
+        overflow-x: auto;
       }
       .day-row .day-label {
-        min-width: 64px;
+        min-width: 84px;
         font-weight: 600;
+        flex: 0 0 84px;
+      }
+      /* CHANGED: hide native file input; we will trigger it from a button */
+      .day-row input[type="file"] {
+        display: none;
+      }
+      /* NEW: visible "ファイル選択" button style */
+      .day-row .select-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
       }
       .day-row .filename {
         color: #666;
         font-size: 0.9em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 0 1 30%;
+        min-width: 80px;
       }
       .day-row .clear-btn {
         display: none;
+        flex: 0 0 auto;
+        white-space: nowrap;
       }
       details.accordion {
         margin-top: 12px;
@@ -203,6 +239,20 @@
         flex: 1 1 420px;
         min-width: 260px;
       }
+      /* Keep button on the right side of the text box in settings rows */
+      .settings-fields .row.inline-form {
+        flex-wrap: nowrap;
+      }
+      .settings-fields .row.inline-form input[type="text"] {
+        flex: 1 1 auto; /* grow/shrink */
+        min-width: 0; /* allow shrinking on small screens */
+      }
+      .settings-fields .row.inline-form .settings-actions {
+        flex: 0 0 auto;
+      }
+      .settings-fields .row.inline-form .settings-actions button {
+        white-space: nowrap;
+      }
       .settings-actions {
         display: flex;
         gap: 8px;
@@ -233,14 +283,7 @@
         />
         <div id="cardBox" class="card-box">
           <div class="overlay-stamps" id="overlayStamps">
-            <img id="overlay1" class="overlay-stamp" alt="" hidden />
-            <img id="overlay2" class="overlay-stamp" alt="" hidden />
-            <img id="overlay3" class="overlay-stamp" alt="" hidden />
-            <img id="overlay4" class="overlay-stamp" alt="" hidden />
-            <img id="overlay5" class="overlay-stamp" alt="" hidden />
-            <img id="overlay6" class="overlay-stamp" alt="" hidden />
-            <img id="overlay7" class="overlay-stamp" alt="" hidden />
-            <img id="overlay8" class="overlay-stamp" alt="" hidden />
+            <!-- CHANGED: dynamic overlays will be appended here -->
           </div>
           <div class="name-badge" id="nameBadge" aria-live="polite"></div>
         </div>
@@ -249,9 +292,9 @@
       <!-- コントロール領域 -->
       <div class="controls" role="region" aria-labelledby="controlsTitle">
         <h2 id="controlsTitle" style="margin: 0 0 8px 0; font-size: 18px">
-          コントローラー
+          選択
         </h2>
-        <div class="row">
+        <div class="row inline-form">
           <label for="nameInput" style="min-width: 84px">名前</label>
           <input
             type="text"
@@ -261,64 +304,8 @@
           />
         </div>
 
-        <div class="checkbox-grid">
-          <!-- 日付ごとのアップロード行（既存） -->
-          <div class="day-row">
-            <span class="day-label">8/18</span>
-            <input type="file" id="dateUpload1" accept="image/png,image/*" />
-            <span class="filename" id="fileName1">未選択</span>
-            <button type="button" class="clear-btn" id="clearStamp1">
-              削除
-            </button>
-          </div>
-          <div class="day-row">
-            <span class="day-label">8/19</span>
-            <input type="file" id="dateUpload2" accept="image/png,image/*" />
-            <span class="filename" id="fileName2">未選択</span>
-            <button type="button" class="clear-btn" id="clearStamp2">
-              削除
-            </button>
-          </div>
-          <div class="day-row">
-            <span class="day-label">8/20</span>
-            <input type="file" id="dateUpload3" accept="image/png,image/*" />
-            <span class="filename" id="fileName3">未選択</span>
-            <button type="button" class="clear-btn" id="clearStamp3">
-              削除
-            </button>
-          </div>
-          <div class="day-row">
-            <span class="day-label">8/21</span>
-            <input type="file" id="dateUpload4" accept="image/png,image/*" />
-            <span class="filename" id="fileName4">未選択</span>
-            <button type="button" class="clear-btn" id="clearStamp4">
-              削除
-            </button>
-          </div>
-          <div class="day-row">
-            <span class="day-label">8/22</span>
-            <input type="file" id="dateUpload5" accept="image/png,image/*" />
-            <span class="filename" id="fileName5">未選択</span>
-            <button type="button" class="clear-btn" id="clearStamp5">
-              削除
-            </button>
-          </div>
-          <div class="day-row">
-            <span class="day-label">8/23</span>
-            <input type="file" id="dateUpload6" accept="image/png,image/*" />
-            <span class="filename" id="fileName6">未選択</span>
-            <button type="button" class="clear-btn" id="clearStamp6">
-              削除
-            </button>
-          </div>
-          <div class="day-row">
-            <span class="day-label">8/24</span>
-            <input type="file" id="dateUpload7" accept="image/png,image/*" />
-            <span class="filename" id="fileName7">未選択</span>
-            <button type="button" class="clear-btn" id="clearStamp7">
-              削除
-            </button>
-          </div>
+        <div class="checkbox-grid" id="uploadList">
+          <!-- CHANGED: dynamic rows will be appended here -->
         </div>
 
         <!-- 追加: PNGで保存 -->
@@ -357,20 +344,33 @@
         <details class="accordion" id="settingsAccordion">
           <summary id="settingsTitle">画像の設定</summary>
           <div class="settings-fields" aria-live="off">
-            <div class="row">
+            <div class="row inline-form">
               <label for="cardUrlInput">カード画像URL</label>
               <input
                 type="text"
                 id="cardUrlInput"
-                value="https://pbs.twimg.com/media/GyjarrxaEAE81fU?format=jpg&name=large"
                 placeholder="カード画像のURLを入力"
               />
               <div class="settings-actions">
-                <button type="button" id="applyCardUrl">適用</button>
+                <button type="button" id="applyCardUrl">画像を適用</button>
               </div>
             </div>
 
             <!-- スタンプ画像のアップロードはコントローラー側へ移動しました -->
+
+            <!-- MOVED HERE: 共有URLの生成とコピー -->
+            <div class="row inline-form">
+              <label for="shareUrlInput">共有URL</label>
+              <input
+                type="text"
+                id="shareUrlInput"
+                readonly
+                placeholder="カードURLを入力すると生成します"
+              />
+              <div class="settings-actions">
+                <button type="button" id="copyShareUrl">URLをコピー</button>
+              </div>
+            </div>
           </div>
         </details>
       </div>
@@ -381,34 +381,290 @@
         const img = document.getElementById("mainImage");
         const frame = document.getElementById("imageFrame");
         const cardBox = document.getElementById("cardBox");
+        const overlayStamps = document.getElementById("overlayStamps");
+        const uploadList = document.getElementById("uploadList");
         const nameBadge = document.getElementById("nameBadge");
         const nameInput = document.getElementById("nameInput");
         const cardUrlInput = document.getElementById("cardUrlInput");
         const applyCardBtn = document.getElementById("applyCardUrl");
-        const exportPngBtn = document.getElementById("exportPngBtn"); // 追加
+        const exportPngBtn = document.getElementById("exportPngBtn");
+        // NEW: share URL elements
+        const shareUrlInput = document.getElementById("shareUrlInput");
+        const copyShareBtn = document.getElementById("copyShareUrl");
 
-        // NEW: defaults for 16:9 cards when natural size is not yet known
         const DEFAULT_W = 1920;
         const DEFAULT_H = 1080;
 
-        // ローカルアップロードスタンプ（最大8枚）
-        const overlayImgs = Array.from({ length: 8 }, (_, i) =>
-          document.getElementById(`overlay${i + 1}`)
-        );
-        // コントローラー側の日付行にアップロード/削除を配置（1..7を使用、8は設定なしでも動作可能）
-        const uploadInputs = Array.from({ length: 7 }, (_, i) =>
-          document.getElementById(`dateUpload${i + 1}`)
-        );
-        const fileNameSpans = Array.from({ length: 7 }, (_, i) =>
-          document.getElementById(`fileName${i + 1}`)
-        );
-        const clearButtons = Array.from({ length: 7 }, (_, i) =>
-          document.getElementById(`clearStamp${i + 1}`)
-        );
-        // オブジェクトURLを追跡して解放
-        const objectUrls = new Array(8).fill(null);
+        // NEW: persistence helpers (hash key = SHA-256 of card URL)
+        async function sha256Hex(str) {
+          try {
+            const data = new TextEncoder().encode(str);
+            const buf = await crypto.subtle.digest("SHA-256", data);
+            const bytes = new Uint8Array(buf);
+            return Array.from(bytes)
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("");
+          } catch {
+            // Fallback simple hash
+            let h = 0;
+            for (let i = 0; i < str.length; i++) {
+              h = (h * 31 + str.charCodeAt(i)) | 0;
+            }
+            return ("00000000" + (h >>> 0).toString(16)).slice(-8);
+          }
+        }
+        function getCurrentCardUrl() {
+          return (cardUrlInput?.value || "").trim();
+        }
+        async function getStorageKeyForCurrentCard() {
+          const url = getCurrentCardUrl();
+          if (!url) return null;
+          const hex = await sha256Hex(url);
+          return `scard:${hex}`;
+        }
 
-        // NEW: rAF-throttled layout updater to avoid redundant reflows
+        // NEW: collect and save current state (debounced)
+        let saveTimer = 0;
+        function saveCurrentStateDebounced() {
+          if (saveTimer) clearTimeout(saveTimer);
+          saveTimer = setTimeout(() => {
+            saveCurrentState().catch(() => {});
+          }, 300);
+        }
+        async function saveCurrentState() {
+          const key = await getStorageKeyForCurrentCard();
+          if (!key) return; // card URL未指定時は保存しない
+          const stamps = [];
+          // 保存順はUI表示順
+          Array.from(uploadList.children).forEach((row) => {
+            const rowId = row.dataset.rowId;
+            const info = rows.get(rowId);
+            if (info && info.hasFile && info.dataUrl) {
+              stamps.push({
+                fileName: info.fname?.textContent || "",
+                dataUrl: info.dataUrl,
+              });
+            }
+          });
+          const data = {
+            name: nameInput.value || "",
+            stamps,
+          };
+          try {
+            localStorage.setItem(key, JSON.stringify(data));
+          } catch {
+            // ignore quota errors
+          }
+        }
+
+        // NEW: clear current rows and overlays
+        function clearAllRowsAndOverlays() {
+          // remove overlays
+          while (overlayStamps.firstChild) overlayStamps.firstChild.remove();
+          // remove rows
+          while (uploadList.firstChild) uploadList.firstChild.remove();
+          rows.clear();
+        }
+
+        // NEW: load state for current card and rebuild UI
+        async function loadStateForCurrentCard() {
+          const key = await getStorageKeyForCurrentCard();
+          clearAllRowsAndOverlays();
+          if (!key) {
+            addUploadRow(); // ensure 1 empty row
+            reindexRows();
+            updateName(); // keep current name input as-is
+            return;
+          }
+          let parsed = null;
+          try {
+            const raw = localStorage.getItem(key);
+            if (raw) parsed = JSON.parse(raw);
+          } catch {}
+          // name
+          if (parsed && typeof parsed.name === "string") {
+            nameInput.value = parsed.name;
+          }
+          updateName();
+          // stamps
+          if (parsed && Array.isArray(parsed.stamps) && parsed.stamps.length) {
+            for (const s of parsed.stamps) {
+              const rid = addUploadRow();
+              const info = rows.get(rid);
+              if (!info) continue;
+              // ensure overlay
+              if (!info.overlayImg) {
+                const oimg = document.createElement("img");
+                oimg.className = "overlay-stamp";
+                oimg.alt = "";
+                overlayStamps.appendChild(oimg);
+                info.overlayImg = oimg;
+              }
+              info.overlayImg.src = s.dataUrl || "";
+              info.overlayImg.hidden = !s.dataUrl;
+              info.dataUrl = s.dataUrl || "";
+              info.fname.textContent = s.fileName || "画像";
+              info.input.disabled = true;
+              info.input.style.display = "none";
+              info.clearBtn.style.display = "inline-block";
+              info.hasFile = !!s.dataUrl;
+              // NEW: hide select button after restore
+              if (info.selectBtn) {
+                info.selectBtn.disabled = true;
+                info.selectBtn.style.display = "none";
+              }
+              // keep delete on the left
+              info.row.insertBefore(info.clearBtn, info.fname);
+              info.row.classList.add("has-file");
+            }
+          }
+          // trailing empty row
+          addUploadRow();
+          reindexRows();
+        }
+
+        // NEW: dynamic rows and overlays (add dataUrl field)
+        // CHANGED: include selectBtn in row state
+        const rows = new Map(); // rowId -> { row, label, selectBtn, input, fname, clearBtn, overlayImg, objectUrl, dataUrl, hasFile }
+        let rowSeq = 0;
+
+        function addUploadRow() {
+          rowSeq += 1;
+          const rowId = String(rowSeq);
+
+          const row = document.createElement("div");
+          row.className = "day-row";
+          row.dataset.rowId = rowId;
+
+          const label = document.createElement("span");
+          label.className = "day-label";
+          label.textContent = `${uploadList.children.length + 1}つめ`;
+
+          // NEW: hidden native input
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/png,image/*";
+          input.style.display = "none";
+
+          // NEW: visible trigger button
+          const selectBtn = document.createElement("button");
+          selectBtn.type = "button";
+          selectBtn.className = "select-btn";
+          selectBtn.textContent = "ファイル選択";
+          selectBtn.addEventListener("click", () => {
+            input.click();
+          });
+
+          const fname = document.createElement("span");
+          fname.className = "filename";
+          // CHANGED: no placeholder text for empty rows
+          fname.textContent = "";
+
+          const clearBtn = document.createElement("button");
+          clearBtn.type = "button";
+          clearBtn.className = "clear-btn";
+          clearBtn.textContent = "削除";
+          clearBtn.style.display = "none";
+
+          // CHANGED: order -> label, selectBtn, input(hidden), filename, clear
+          row.append(label, selectBtn, input, fname, clearBtn);
+          uploadList.appendChild(row);
+
+          rows.set(rowId, {
+            row,
+            label,
+            selectBtn,
+            input,
+            fname,
+            clearBtn,
+            overlayImg: null,
+            objectUrl: null,
+            dataUrl: null,
+            hasFile: false,
+          });
+
+          // CHANGED: read file as Data URL (for persistence), set overlay, then save
+          input.addEventListener("change", () => {
+            const file = input.files && input.files[0];
+            if (!file) return;
+
+            const info = rows.get(rowId);
+            if (!info) return;
+
+            if (!info.overlayImg) {
+              const oimg = document.createElement("img");
+              oimg.className = "overlay-stamp";
+              oimg.alt = "";
+              overlayStamps.appendChild(oimg);
+              info.overlayImg = oimg;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = String(reader.result || "");
+              info.dataUrl = dataUrl;
+              info.overlayImg.src = dataUrl;
+              info.overlayImg.hidden = false;
+
+              // prevent reselection; hide select button and native input
+              info.input.disabled = true;
+              info.input.style.display = "none";
+              if (info.selectBtn) {
+                info.selectBtn.disabled = true;
+                info.selectBtn.style.display = "none";
+              }
+
+              info.fname.textContent = file.name;
+              info.clearBtn.style.display = "inline-block";
+              info.hasFile = true;
+
+              // keep delete button left of filename
+              info.row.insertBefore(info.clearBtn, info.fname);
+              info.row.classList.add("has-file");
+
+              saveCurrentStateDebounced();
+              ensureTrailingEmptyRow();
+            };
+            reader.readAsDataURL(file);
+          });
+
+          clearBtn.addEventListener("click", () => {
+            removeRow(rowId);
+            saveCurrentStateDebounced();
+          });
+
+          return rowId;
+        }
+
+        function removeRow(rowId) {
+          const info = rows.get(rowId);
+          if (!info) return;
+
+          if (info.objectUrl) {
+            URL.revokeObjectURL(info.objectUrl);
+          }
+          if (info.overlayImg) {
+            info.overlayImg.remove();
+          }
+          info.row.remove();
+          rows.delete(rowId);
+
+          reindexRows();
+
+          // Always keep at least one empty row; also keep a trailing empty row if all are filled
+          if (uploadList.children.length === 0 || allRowsHaveFiles()) {
+            addUploadRow();
+          }
+        }
+
+        function reindexRows() {
+          Array.from(uploadList.children).forEach((row, idx) => {
+            const label = row.querySelector(".day-label");
+            if (label) label.textContent = `${idx + 1}つめ`;
+          });
+        }
+
+        // ADD: rAF-throttled layout updater used below
         let rafId = 0;
         function scheduleUpdateCardBoxRect() {
           if (rafId) return;
@@ -418,62 +674,30 @@
           });
         }
 
-        function setFileName(i, name) {
-          const span = fileNameSpans[i];
-          if (span) span.textContent = name || "未選択";
-          const btn = clearButtons[i];
-          if (btn)
-            btn.style.display =
-              name && name !== "未選択" ? "inline-block" : "none";
-        }
-
-        function clearOverlay(i) {
-          const imgEl = overlayImgs[i];
-          if (!imgEl) return;
-          if (objectUrls[i]) {
-            URL.revokeObjectURL(objectUrls[i]);
-            objectUrls[i] = null;
+        function allRowsHaveFiles() {
+          let hasAny = false;
+          for (const info of rows.values()) {
+            hasAny = true;
+            if (!info.hasFile) return false;
           }
-          imgEl.removeAttribute("src");
-          imgEl.hidden = true;
-          if (uploadInputs[i]) uploadInputs[i].value = "";
-          setFileName(i, "未選択");
+          return hasAny;
         }
 
-        function handleUpload(idx, file) {
-          const imgEl = overlayImgs[idx];
-          if (!imgEl || !file) return;
-          if (objectUrls[idx]) {
-            URL.revokeObjectURL(objectUrls[idx]);
-            objectUrls[idx] = null;
-          }
-          const url = URL.createObjectURL(file);
-          objectUrls[idx] = url;
-          imgEl.onload = () => {
-            // keep URL until cleared to allow re-render without GC
-          };
-          imgEl.src = url;
-          imgEl.hidden = false;
-          setFileName(idx, file.name);
+        function ensureTrailingEmptyRow() {
+          if (allRowsHaveFiles()) addUploadRow();
         }
-
-        uploadInputs.forEach((inp, i) => {
-          if (!inp) return;
-          inp.addEventListener("change", () => {
-            const file = inp.files && inp.files[0];
-            if (file) handleUpload(i, file);
-          });
-        });
-        clearButtons.forEach((btn, i) => {
-          if (!btn) return;
-          btn.addEventListener("click", () => clearOverlay(i));
-        });
 
         function updateName() {
           const text = nameInput.value.trim();
           nameBadge.textContent = text;
           nameBadge.style.display = text ? "block" : "none";
         }
+
+        // Also save name on change
+        nameInput.addEventListener("input", () => {
+          updateName();
+          saveCurrentStateDebounced();
+        });
 
         // NEW: helper to draw outlined text with outer-only outline
         function drawOutlinedText(
@@ -489,11 +713,9 @@
         ) {
           if (!text) return;
           const { canvas } = ctx;
-          const ow = canvas.width;
-          const oh = canvas.height;
           const outlineCanvas = document.createElement("canvas");
-          outlineCanvas.width = ow;
-          outlineCanvas.height = oh;
+          outlineCanvas.width = canvas.width;
+          outlineCanvas.height = canvas.height;
           const octx = outlineCanvas.getContext("2d");
           octx.font = `${fontSize}px ${fontFamily}`;
           octx.textBaseline = "alphabetic";
@@ -542,14 +764,16 @@
             // ベース（カード）
             ctx.drawImage(img, 0, 0, natW, natH);
 
-            // スタンプ（overlay1..8）
-            for (const o of overlayImgs) {
+            // スタンプ（DOM順に重ねる）
+            const overlays =
+              overlayStamps.querySelectorAll("img.overlay-stamp");
+            overlays.forEach((o) => {
               if (o && o.src && !o.hidden) {
                 ctx.drawImage(o, 0, 0, natW, natH);
               }
-            }
+            });
 
-            // 名前（外側のみ白縁 → 本体の順で描画）
+            // 名前描画
             const nameText = (nameInput.value || "").trim();
             if (nameText) {
               // 画面座標→自然サイズへ変換
@@ -614,11 +838,37 @@
         // カードURL適用（CORS考慮）
         function applyCardUrl() {
           const url = (cardUrlInput?.value || "").trim();
-          if (!url) return;
-          // CORS許可がある場合に備え crossOrigin を設定
+          if (!url) {
+            const u = new URL(location.href);
+            u.searchParams.delete("card");
+            history.replaceState(null, "", u.href);
+            updateShareUrl();
+            // when cleared, reset UI to fresh state
+            clearAllRowsAndOverlays();
+            addUploadRow();
+            reindexRows();
+            return;
+          }
           img.crossOrigin = "anonymous";
           img.referrerPolicy = "no-referrer";
           img.src = url;
+          const u = new URL(location.href);
+          u.searchParams.set("card", url);
+          history.replaceState(null, "", u.href);
+          updateShareUrl();
+
+          // NEW: clear current UI immediately to avoid stale name/stamps while loading
+          try {
+            clearAllRowsAndOverlays();
+            nameInput.value = "匿名さん";
+            updateName();
+            addUploadRow();
+            reindexRows();
+          } catch {}
+
+          // Load saved state for this card URL (name, stamps) from localStorage
+          loadStateForCurrentCard().catch(() => {});
+
           img
             .decode?.()
             .catch(() => {})
@@ -650,6 +900,35 @@
           cardBox.style.setProperty("--card-scale-y", String(scaleY));
         }
 
+        // NEW: 共有URLを入力値から生成
+        function updateShareUrl() {
+          const v = (cardUrlInput?.value || "").trim();
+          if (!shareUrlInput) return;
+          const u = new URL(location.href);
+          if (v) {
+            u.searchParams.set("card", v);
+            shareUrlInput.value = u.href;
+          } else {
+            u.searchParams.delete("card");
+            shareUrlInput.value = "";
+          }
+        }
+
+        // NEW: 共有URLのコピー
+        function copyShareUrl() {
+          const v = shareUrlInput?.value || "";
+          if (!v) return;
+          if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(v).catch(() => {});
+          } else {
+            shareUrlInput.select();
+            try {
+              document.execCommand("copy");
+            } catch {}
+            shareUrlInput.blur();
+          }
+        }
+
         // Listeners
         nameInput.addEventListener("input", updateName);
         if (applyCardBtn) applyCardBtn.addEventListener("click", applyCardUrl);
@@ -657,13 +936,33 @@
           cardUrlInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter") applyCardUrl();
           });
+          // NEW: also apply on input change (blur), to re-fetch and re-set from localStorage
+          cardUrlInput.addEventListener("change", applyCardUrl);
+        }
+        if (copyShareBtn) {
+          copyShareBtn.addEventListener("click", copyShareUrl);
         }
 
         // 初期化
+        // NEW: ?card= を読み込んで反映
+        try {
+          const params = new URLSearchParams(location.search);
+          const cardParam = params.get("card");
+          if (cardParam) {
+            cardUrlInput.value = cardParam;
+          }
+        } catch {}
         updateName();
-        updateCardBoxRect();
+        // REPLACE: start empty; load state if card param present; otherwise add one row
+        (async () => {
+          if ((cardUrlInput?.value || "").trim()) {
+            await loadStateForCurrentCard();
+          } else {
+            addUploadRow();
+          }
+          updateCardBoxRect();
+        })();
 
-        // ページロード後
         window.addEventListener("load", () => {
           try {
             applyCardUrl();
@@ -682,9 +981,8 @@
           );
         }
         img.addEventListener("load", scheduleUpdateCardBoxRect);
-
-        // 16:9維持のフォールバックは不要（ビューポートフィット運用）
       })();
+
       // PWA: Service Worker 登録（対応ブラウザのみ）
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
